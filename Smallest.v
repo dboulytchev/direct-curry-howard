@@ -5,6 +5,8 @@ Export ListNotations.
 Require Export Arith.
 Require Export Arith.EqNat.
 
+(* Fixpoint definition of the smallest element *)
+
 Fixpoint smallest' (n:nat) (l:list nat) : nat :=
   match l with 
   | []    => n 
@@ -17,6 +19,8 @@ Definition smallest (l : list nat) : ([] <> l) -> nat :=
   | x::xs => fun _ => smallest' x xs
   end.
 
+(* Inductive proposition *)
+
 Inductive is_smallest : nat -> list nat -> Prop :=
   smallest_unit : forall n, is_smallest n [n]
 | smallest_head : forall n m tl, 
@@ -25,6 +29,9 @@ Inductive is_smallest : nat -> list nat -> Prop :=
     m <  n -> is_smallest m tl -> is_smallest m (n::tl).
 
 Hint Constructors is_smallest.
+
+(* Correctness proof *)
+(* TODO: shorter! more automation! *)
 
 Lemma smallest_le : forall (l : list nat) (n : nat), smallest' n l <= n.
 Proof. 
@@ -52,8 +59,6 @@ Proof.
       simpl in H. apply (smaller_then_smallest n a l); auto. omega.
 Qed.
 
-Hint Resolve smaller_is_smallest.
-
 Lemma bigger_not_smallest : forall (a n : nat) (l : list nat), 
   a > smallest (n::l) (nil_cons (l:=l)) -> 
   smallest (a::n::l) (nil_cons (l:=n::l)) = smallest (n::l) (nil_cons (l:=l)).
@@ -65,14 +70,12 @@ Proof.
         destruct (le_gt_dec n a0); omega. reflexivity.
 Qed.
 
-Hint Resolve bigger_not_smallest.
-
 Theorem smallest_is_smallest : 
   forall (l : list nat) (w : [] <> l), is_smallest (smallest l w) l.
 Proof.
   intros. induction l. unfold not in w. exfalso. auto.
     destruct l eqn: L. auto.
-      remember (IHl (@nil_cons nat n l0)) as A. 
+      remember (IHl (nil_cons(l:=l0))) as A. 
       remember (le_gt_dec a (smallest (n::l0) (nil_cons (l:=l0)))) as A1. 
       inversion A1.
       assert (AA: smallest (a::n::l0) w = a). 
@@ -88,13 +91,19 @@ Proof.
       eauto.
 Qed.
 
+(* Program Fixepoint definition *)
+
+(* TODO *)
+
+(* Direct construction *)
+
 Theorem smallest'' : 
   forall (l : list nat), [] <> l -> {n | is_smallest n l}.
 Proof. 
   intros. 
     induction l. unfold not in H. exfalso. auto.
       destruct l eqn: L. exists a. auto. 
-        remember (IHl (@nil_cons nat n l0)) as A.         
+        remember (IHl (nil_cons(l:=l0))) as A.         
           inversion A.
         remember (le_gt_dec a x) as A1. 
           inversion A1. 
