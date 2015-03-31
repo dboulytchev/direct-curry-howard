@@ -16,11 +16,11 @@ Hint Constructors is_sorted.
 
 Lemma head_is_smallest : forall (a : nat) (l : list nat),
   is_sorted (a::l) -> is_smallest a (a::l).
-Proof. intros. inversion H; auto. Qed.
+Proof. intros. inversion H; auto. Defined.
 
 Lemma tail_is_sorted : forall (a : nat) (l : list nat),
   is_sorted (a::l) -> is_sorted l.
-Proof. intros. inversion H; auto. Qed.
+Proof. intros. inversion H; auto. Defined.
 
 Inductive is_inserted : nat -> list nat -> list nat -> Prop :=
   ins_head : forall n tl, is_inserted n tl (n::tl)
@@ -38,7 +38,7 @@ Hint Constructors is_permutation.
 (* TODO: prove *) 
 Lemma insert_bigger : forall (a b : nat) (l l' : list nat),
   is_smallest a (a::l) -> b > a -> is_inserted b l l' -> is_smallest a (a::l').
-Proof. admit. Qed.  
+Proof. admit. Defined.  
 
 Lemma insert_sorted : forall (a : nat) (l : list nat),
   is_sorted l -> {l' | is_inserted a l l' & is_sorted l'}.
@@ -53,11 +53,16 @@ Proof.
         exists (a0::x). auto. apply sorted_cons. auto.
           apply (insert_bigger a0 a l x);
             try apply (head_is_smallest a0 l); assumption.
-Qed.
+Defined.
 
 Theorem sort : forall (l : list nat), {l' | is_permutation l l' & is_sorted l'}.
 Proof.
   intros. induction l. exists []; auto.
     inversion IHl. apply (insert_sorted a x) in H0. inversion H0. 
       exists x0. eauto. assumption.
-Qed.
+Defined.
+
+Print sort.
+
+Extraction Language Ocaml.
+Extraction "insort.ml" sort.
