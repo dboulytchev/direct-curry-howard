@@ -1,9 +1,7 @@
 Require Omega.   
-Require Export Bool.
-Require Export List.
+Require Export Bool List.
 Export ListNotations.
-Require Export Arith.
-Require Export Arith.EqNat.
+Require Export Arith Arith.EqNat.
 
 (* Fixpoint definition of the smallest element *)
 
@@ -93,7 +91,31 @@ Qed.
 
 (* Program Fixepoint definition *)
 
-(* TODO *)
+Program Fixpoint smallestFix (l : list nat) (H : [] <> l) :
+    {n | is_smallest n l} :=
+  match l with
+  | [] => _
+  | x :: xs =>
+    match xs with
+    | [] => x
+    | y :: ys => min x (smallestFix xs _)
+    end
+  end.
+Next Obligation.
+  clear H.
+  remember (Min.min_spec x x0) as H.
+  inversion H; inversion H0; rewrite H2.
+    apply (@smallest_head x x0).
+      omega.
+      assumption.
+    set (@le_lt_eq_dec x0 x H1) as S.
+      inversion S.
+        apply (@smallest_tail x x0 _ H3); assumption.
+        rewrite H3.
+        apply (@smallest_head x x0).
+        omega.
+        assumption.
+Defined.
 
 (* Direct construction *)
 
