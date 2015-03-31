@@ -22,8 +22,7 @@ Inductive gt_tree : nat -> tree -> Prop :=
 Inductive is_search_tree : tree -> Prop :=
   st_leaf : is_search_tree leaf
 | st_node : forall (n : nat) (l r : tree), 
-   lt_tree n l -> gt_tree n r -> 
-   is_search_tree l -> is_search_tree r -> 
+   lt_tree n l -> gt_tree n r -> is_search_tree l -> is_search_tree r -> 
    is_search_tree (node n l r).
 
 Inductive contains : nat -> tree -> Prop :=
