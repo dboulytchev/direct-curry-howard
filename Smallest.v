@@ -89,7 +89,7 @@ Proof.
       eauto.
 Qed.
 
-(* Program Fixepoint definition *)
+(* Program Fixpoint definition *)
 
 Program Fixpoint smallestFix (l : list nat) (H : [] <> l) :
     {n | is_smallest n l} :=
