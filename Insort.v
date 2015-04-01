@@ -1,9 +1,7 @@
 Require Omega.   
-Require Export Bool.
-Require Export List.
+Require Export Bool List.
 Export ListNotations.
-Require Export Arith.
-Require Export Arith.EqNat.
+Require Export Arith Arith.EqNat.
 Require Export Smallest.
 
 Inductive is_sorted : list nat -> Prop :=
@@ -27,13 +25,6 @@ Inductive is_inserted : nat -> list nat -> list nat -> Prop :=
 | ins_tail : forall n m tl tl', is_inserted n tl tl' -> is_inserted n (m::tl) (m::tl').
 
 Hint Constructors is_inserted.
-
-Inductive is_permutation : list nat -> list nat -> Prop :=
-  perm_nil  : is_permutation [] []
-| perm_cons : forall n l l' m, 
-   is_permutation l l' -> is_inserted n l' m -> is_permutation (n::l) m.
-
-Hint Constructors is_permutation.
 
 Lemma smallest_perm a n tl : is_smallest a (n :: a :: tl) -> is_smallest a (a :: n :: tl).
 Proof.
@@ -113,6 +104,13 @@ Proof.
             try apply (head_is_smallest a0 l); assumption.
 Defined.
 
+Inductive is_permutation : list nat -> list nat -> Prop :=
+  perm_nil  : is_permutation [] []
+| perm_cons : forall n l l' m, 
+   is_permutation l l' -> is_inserted n l' m -> is_permutation (n::l) m.
+
+Hint Constructors is_permutation.
+
 Theorem sort : forall (l : list nat), {l' | is_permutation l l' & is_sorted l'}.
 Proof.
   intros. induction l. exists []; auto.
@@ -124,3 +122,54 @@ Print sort.
 
 Extraction Language Ocaml.
 Extraction "insort.ml" sort.
+
+Program Fixpoint insert_sorted_fix (a : nat) (l : list nat) :
+    is_sorted l -> {l' | is_inserted a l l' /\ is_sorted l'} := fun H =>
+  match l with
+  | nil     => [a]
+  | x :: xs => if le_gt_dec a x
+               then a :: l
+               else x :: (insert_sorted_fix a xs _)
+  end.
+Next Obligation.
+split; auto.
+  apply sorted_cons. assumption.
+    apply (smallest_head a x). assumption.
+      inversion H; auto.
+Qed.
+Next Obligation.
+inversion H; auto.
+Qed.
+Next Obligation.
+split.
+  apply ins_tail; auto.
+    apply sorted_cons; auto.
+      apply (insert_bigger x a xs x0); auto.
+        inversion H; auto.
+Defined.            
+
+Require Import Permutation.
+
+Lemma insert_sorted_fix_perm (a : nat) (l : list nat) (H : is_sorted l) :
+    Permutation (a :: l) (proj1_sig (insert_sorted_fix a l H)).
+Proof.
+  generalize dependent H.
+    generalize dependent a.
+      induction l.
+        intros a H. unfold insert_sorted_fix; simpl; auto.
+        intros b H; simpl.
+          destruct (le_gt_dec b a) eqn: Hab; simpl.
+            apply Permutation_refl.
+            apply (@perm_trans _ (b :: a :: l) (a :: b :: l)); auto.
+              apply perm_swap.
+Qed.            
+    
+Program Fixpoint sort_prog (l : list nat) :
+    {l' | Permutation l l' /\ is_sorted l'} :=
+  match l with
+  | nil     => nil
+  | x :: xs => insert_sorted_fix x (sort_prog xs) _
+  end.
+Next Obligation.
+  admit.
+Defined.
