@@ -118,6 +118,101 @@ Proof.
                 apply right_contains. apply H2. right. assumption.
 Qed.
 
+Lemma contains_in_lt n t : lt_tree n t -> forall x, contains x t -> n > x.
+Proof. intros H; induction H; intros x Hi; inversion Hi; auto. Qed.
+
+Lemma lt_insert x n (t : tree) (t' : tree) :
+     n < x -> lt_tree x t ->
+     (forall m, contains m t' -> m = n \/ contains m t) ->
+     is_search_tree t' -> lt_tree x t'.
+Proof.
+  intros. apply lt_contains. intros.
+    apply H1 in H3; destruct H3.
+      rewrite H3; auto.
+        apply (contains_in_lt x t); auto.
+Qed.
+
+Lemma contains_in_gt n t : gt_tree n t -> forall x, contains x t -> n < x.
+Proof. intros H; induction H; intros x Hi; inversion Hi; auto. Qed.
+
+Lemma gt_insert x n (t : tree) (t' : tree) :
+     n > x -> gt_tree x t ->
+     (forall m, contains m t' -> m = n \/ contains m t) ->
+     is_search_tree t' -> gt_tree x t'.
+Proof.
+  intros. apply gt_contains. intros.
+    apply H1 in H3; destruct H3.
+      rewrite H3; auto.
+        apply (contains_in_gt x t); auto.
+Qed.
+
+Program Fixpoint add_in_search_tree_prog (t : tree) (n : nat) :
+    is_search_tree t ->
+    {t' | is_search_tree t' /\
+          (forall (m : nat), contains m t' <-> m = n \/ contains m t)
+    } := fun H => 
+  match t with
+  | leaf       => node n leaf leaf
+  | node x l r => match (lt_eq_lt_dec n x) with
+                  | inleft LE => 
+                    if LE
+                    then let: nl := add_in_search_tree_prog l n _ in
+                         node x nl r
+                    else t
+                  | inright GT =>
+                         let: nr := add_in_search_tree_prog r n _ in
+                         node x l nr
+                  end
+  end.
+Next Obligation.
+split; auto.
+  intros m; clear H.
+    split; intros H; inversion H; auto.
+      rewrite H0; auto.
+Qed.
+Next Obligation. inversion H; auto. Qed.
+Next Obligation.
+  clear LE Heq_anonymous.
+    split.
+      apply st_node; inversion H; auto.
+        apply (lt_insert x n l x0); auto.
+          apply i0.
+      intros m; split.
+        intros X; inversion X; auto.
+          apply (proj1 (i0 m)) in H3.
+            inversion H3; auto.
+        intros X; destruct X.
+          assert (m = n \/ contains m l) as H2; auto.
+            apply (i0 m) in H2; auto.
+          inversion H1; auto.
+            apply left_contains.
+              apply i0; auto.
+Defined.
+Next Obligation.
+clear LE Heq_anonymous.
+  split; auto.
+    intros m; split; intros X; inversion X; auto.
+      rewrite H0; auto.      
+Qed.      
+Next Obligation. inversion H; auto. Qed.              
+Next Obligation.        
+  clear Heq_anonymous.
+    split.
+      apply st_node; inversion H; auto.    
+        apply (gt_insert x n r x0); auto.
+          apply i0.
+      intros m; split.
+        intros X; inversion X; auto.
+          apply (proj1 (i0 m)) in H2.
+            inversion H2; auto.
+        intros X; destruct X.
+          assert (m = n \/ contains m r) as H2; auto.
+            apply (i0 m) in H2; auto.
+          inversion H0; auto.
+            apply right_contains.
+              apply i0; auto.
+Defined.  
+
 Fixpoint height (t: tree) : nat := 
   match t with
   | leaf => 0
