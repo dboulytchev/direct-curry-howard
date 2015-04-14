@@ -26,7 +26,7 @@ Inductive is_inserted : nat -> list nat -> list nat -> Prop :=
 
 Hint Constructors is_inserted.
 
-Lemma smallest_perm a n tl : is_smallest a (n :: a :: tl) -> is_smallest a (a :: n :: tl).
+Lemma smallest_head_perm a n tl : is_smallest a (n :: a :: tl) -> is_smallest a (a :: n :: tl).
 Proof.
 intros H; inversion H.
   rewrite H0 in H. assumption.
@@ -45,7 +45,7 @@ Lemma smallest_with_n a n tl : is_smallest a (a :: tl) -> a <= n -> is_smallest 
 Proof.
 intros H; inversion H; intros Hle.
   apply (smallest_head a n [n] Hle). constructor.
-  apply (smallest_perm).
+  apply (smallest_head_perm).
     set (le_lt_eq_dec a n Hle) as S.
       inversion S.
         apply (smallest_tail _ _ _ H4 H).
@@ -163,7 +163,8 @@ Proof.
             apply (@perm_trans _ (b :: a :: l) (a :: b :: l)); auto.
               apply perm_swap.
 Qed.            
-    
+   
+(* 
 Program Fixpoint sort_prog (l : list nat) :
     {l' | Permutation l l' /\ is_sorted l'} :=
   match l with
@@ -171,5 +172,119 @@ Program Fixpoint sort_prog (l : list nat) :
   | x :: xs => insert_sorted_fix x (sort_prog xs) _
   end.
 Next Obligation.
+  Admitted.
+  split.
   admit.
 Defined.
+*)
+
+(* Realization w/o dependent types *)
+
+Fixpoint insert_fun a l :=
+  match l with
+  | nil     => [a]
+  | x :: xs => if le_gt_dec a x
+               then a :: l
+               else x :: (insert_fun a xs)
+  end.
+
+Fixpoint insert_sort l :=
+  match l with
+  | nil     => nil
+  | x :: xs => insert_fun x (insert_sort xs)
+  end.
+
+Require Import ssreflect.
+
+Lemma smallest_in : forall l a, is_smallest a l -> (forall x, In x l -> a <= x).
+Proof.
+induction l.
+  intros a  H1 x H2. inversion H2.
+  intros a0 H1 x H2. destruct H2.
+    rewrite H in H1. clear a H.
+      inversion H1; auto. apply lt_le_weak; auto.
+    inversion H1.
+      rewrite <- H4 in H; inversion H.
+      apply (le_trans a m x H4). 
+        apply (IHl _ H5 _ H).
+      apply IHl; auto.        
+Qed.
+
+Lemma smallest_in_perm : forall a l l',
+  is_smallest a l -> Permutation l l' -> (forall x, In x l' -> a <= x).
+Proof.
+intros a l l' H1 H2 x H3.
+  apply (smallest_in l a H1).
+    apply (Permutation_in x (Permutation_sym H2) H3).
+Qed.
+
+Lemma smallest_dec : forall l, l <> [] -> {x | is_smallest x l}.
+Proof.
+induction l. intros H; exfalso; auto. 
+  intros _.
+    destruct l. exists a; auto.
+      assert (n :: l <> []) as H. intros H. inversion H.
+      apply IHl in H; destruct H. 
+        destruct (le_lt_dec a x).
+          exists a. apply (smallest_head a x); auto.
+          exists x. apply smallest_tail; auto.
+Qed.
+
+Lemma in_list_smallest : forall l a,
+  In a l -> (forall x, In x l -> a <= x) -> is_smallest a l.
+Proof.
+induction l.
+  intros a H; inversion H.
+  intros b H1 H2.
+    destruct H1.
+      rewrite H. apply smallest_head. 
+(*TODO*)
+Qed.
+
+Lemma smallest_in_list : forall a l, is_smallest a l -> In a l.
+Proof.
+induction l; intros H; inversion H.
+  constructor; auto.
+  constructor; auto.
+  right. apply (IHl H4).
+Qed.
+
+Lemma smallest_perm : forall a l l', is_smallest a l -> Permutation l l' -> is_smallest a l'.
+Proof.
+intros a l l' H1 H2. 
+  apply in_list_smallest.
+    apply (Permutation_in _ H2). apply (smallest_in_list _ _ H1).
+    apply (smallest_in_perm _ _ _ H1 H2).
+Qed.
+
+Lemma insert_fun_to_sort : forall a l, is_sorted l ->
+  Permutation (insert_fun a l) (a :: l) /\ is_sorted (insert_fun a l).
+Proof.
+intros a l. induction l; intros H.
+  split; auto. unfold insert_fun; auto.
+  assert (is_sorted l) as H1. inversion H; auto.
+    unfold insert_fun.
+      destruct (le_gt_dec a a0) eqn: H2; fold insert_fun.
+        split; auto; constructor; auto.
+          apply (smallest_head _ a0); auto.
+            apply head_is_smallest; auto.
+        split.
+          eapply (@perm_trans _ _ (a0 :: a :: l)); constructor.
+            apply (IHl H1).
+          destruct (IHl H1). constructor; auto.
+            apply (smallest_perm a0 (a0 :: a :: l)).
+              apply smallest_head_perm.
+                apply smallest_tail; auto.
+                  apply head_is_smallest; auto.
+              constructor. apply Permutation_sym. auto.
+Qed.
+
+Theorem insert_sort_is_sort :
+  forall l, Permutation (insert_sort l) l /\  is_sorted (insert_sort l).
+Proof.
+intros l; induction l; simpl; auto.
+  destruct IHl as [H1 H2].
+    pose (H := insert_fun_to_sort a (insert_sort l)).
+      destruct H as [H3 H4]; auto.
+       split; auto. eapply (@perm_trans _ _ (a :: insert_sort l)); auto.
+Qed.
