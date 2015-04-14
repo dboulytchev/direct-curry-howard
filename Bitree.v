@@ -219,3 +219,71 @@ Fixpoint height (t: tree) : nat :=
   | node _ l r => 1 + max (height l) (height r)
   end.
 
+Fixpoint add_in_search_tree_fun t n :=
+  match t with
+  | leaf       => node n leaf leaf
+  | node x l r => match (lt_eq_lt_dec n x) with
+                  | inleft LE => 
+                    if LE
+                    then let: nl := add_in_search_tree_fun l n in
+                         node x nl r
+                    else t
+                  | inright _ =>
+                         let: nr := add_in_search_tree_fun r n in
+                         node x l nr
+                  end
+  end.
+
+Lemma add_fun_contains : forall t m x,
+  contains m (add_in_search_tree_fun t x) <-> m = x \/ contains m t.
+Proof.
+induction t.
+  intros m x; split; intros H; simpl in H; simpl.
+    left. inversion H; auto; inversion H2.
+    destruct H. rewrite H; auto.
+      inversion H.    
+  intros m x; unfold add_in_search_tree_fun; split; destruct (lt_eq_lt_dec x n); intros H.
+    destruct s; fold add_in_search_tree_fun in H; auto.
+      inversion H. right; auto. 
+        apply IHt1 in H2. destruct H2. left; auto.
+          right. constructor; auto.
+        right; apply right_contains; auto.
+    fold add_in_search_tree_fun in H.
+      inversion H. right; auto.
+        right; constructor; auto.
+        apply IHt2 in H2; destruct H2; auto.
+    destruct s; fold add_in_search_tree_fun; destruct H; auto;
+        specialize (IHt1 m x); destruct IHt1; auto.
+      inversion H; auto. rewrite <- e, H; auto. 
+    fold add_in_search_tree_fun; destruct H.
+      apply right_contains; apply IHt2; auto.
+      inversion H; auto.    
+        apply right_contains; apply IHt2; auto.
+Qed.
+
+Theorem add_in_search_tree_fun_correct : forall (t : tree) (n : nat),
+  is_search_tree t -> 
+  is_search_tree (add_in_search_tree_fun t n) /\ 
+  (forall (m : nat), contains m (add_in_search_tree_fun t n) <-> m = n \/ contains m t).
+Proof.
+induction t.
+  intros n _; split. constructor; auto. 
+    intros m; split. apply add_fun_contains.
+      intros H; destruct H; simpl. rewrite H; auto.
+        inversion H; auto.
+  intros x H; split.
+    unfold add_in_search_tree_fun. destruct (lt_eq_lt_dec x n).
+      destruct s; fold add_in_search_tree_fun; auto. constructor; inversion H; auto.
+        apply lt_contains. intros m HcontM.  
+          apply add_fun_contains in HcontM. destruct HcontM.
+            rewrite H7; auto.
+            apply (left_lt _ _ _ _ H H7). 
+        apply (IHt1 x) in H5. destruct H5; auto.
+      fold add_in_search_tree_fun. constructor; inversion H; auto.
+        apply gt_contains. intros m HcontM.
+            apply add_fun_contains in HcontM. destruct HcontM.
+              rewrite H7; auto.
+              apply (right_gt _ _ _ _ H H7). 
+          apply (IHt2 x) in H6. destruct H6; auto.
+    intros m. apply add_fun_contains.
+Qed.
