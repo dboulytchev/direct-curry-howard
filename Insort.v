@@ -194,8 +194,6 @@ Fixpoint insert_sort l :=
   | x :: xs => insert_fun x (insert_sort xs)
   end.
 
-Require Import ssreflect.
-
 Lemma smallest_in : forall l a, is_smallest a l -> (forall x, In x l -> a <= x).
 Proof.
 induction l.
@@ -230,6 +228,14 @@ induction l. intros H; exfalso; auto.
           exists x. apply smallest_tail; auto.
 Qed.
 
+Lemma smallest_in_list : forall a l, is_smallest a l -> In a l.
+Proof.
+induction l; intros H; inversion H.
+  constructor; auto.
+  constructor; auto.
+  right. apply (IHl H4).
+Qed.
+
 Lemma in_list_smallest : forall l a,
   In a l -> (forall x, In x l -> a <= x) -> is_smallest a l.
 Proof.
@@ -237,16 +243,23 @@ induction l.
   intros a H; inversion H.
   intros b H1 H2.
     destruct H1.
-      rewrite H. apply smallest_head. 
-(*TODO*)
-Qed.
-
-Lemma smallest_in_list : forall a l, is_smallest a l -> In a l.
-Proof.
-induction l; intros H; inversion H.
-  constructor; auto.
-  constructor; auto.
-  right. apply (IHl H4).
+      rewrite <- H in H2. rewrite <- H. clear b H.
+        destruct l; auto.
+        pose (smallest_dec (n::l)) as H3.
+          assert (n::l <> []) as H4. intros H0. inversion H0.
+          apply H3 in H4. destruct H4.
+            assert (a <= x) as H5. apply H2. right.
+              apply (smallest_in_list _ _ i).
+            apply (smallest_head _ x); auto.
+      assert (b <= a) as H1. apply H2. left; auto.
+      destruct (le_lt_eq_dec _ _ H1).
+        apply smallest_tail; auto. 
+          apply IHl; auto.
+            intros x H3. apply H2; right; auto.
+        rewrite e. rewrite e in H2, H. clear b H1 e.
+          apply (smallest_head _ a). apply le_refl.
+            apply IHl; auto. intros x H3. apply H2.
+              right; auto.
 Qed.
 
 Lemma smallest_perm : forall a l l', is_smallest a l -> Permutation l l' -> is_smallest a l'.
