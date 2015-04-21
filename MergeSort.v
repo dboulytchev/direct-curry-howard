@@ -52,7 +52,11 @@ Qed.
 
 Lemma merged_permutation : forall (l l' l'': list nat), 
   are_merged l l' l'' -> Permutation (l ++ l') l''.
-Proof. admit. Qed.
+Proof.
+intros. induction H; simpl; try rewrite app_nil_r; auto.
+  apply Permutation_sym. apply (@Permutation_cons_app _ l'' (m :: l) l' n).
+    apply Permutation_sym; auto.
+Qed.
 
 Lemma merge : forall (a b : list nat),
   is_sorted a -> is_sorted b -> {ab | is_sorted ab & are_merged a b ab}.
