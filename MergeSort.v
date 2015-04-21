@@ -146,3 +146,158 @@ apply genListInd. exists []; auto.
               apply (Permutation_trans H1) in H3. apply (Permutation_trans H3).
                 apply merged_permutation; auto.
 Qed.
+
+
+(* Program Fixpoint Definition. *)
+
+Program Fixpoint can_split_fix (l : list nat) :
+  {l' | Permutation ((fst l') ++ (snd l')) l /\ dist (length (fst l')) (length (snd l')) <= 1} :=
+  match l with
+  | [] => ([], [])
+  | a :: l =>
+    let: (pl, pr) := can_split_fix l in
+    match (Min.min_dec (length pl) (length pr)) with
+    | left  _ => (a::pl, pr)
+    | right _ => (pl, a::pr)
+    end 
+  end.
+Next Obligation. split. apply perm_skip; auto. apply dist_S_l; auto. Defined.
+Next Obligation.
+split. apply Permutation_sym; apply Permutation_cons_app; apply Permutation_sym; auto.
+  apply dist_S_r; auto.
+Defined.
+
+Definition mm (lls : list nat * list nat) := let (l1, l2) := lls in length l1 + length l2.
+
+Require Import Coq.Program.Wf Recdef.
+
+Program Fixpoint merge_fix (ab : list nat * list nat) {measure (mm ab)} :
+    is_sorted (fst ab) -> is_sorted (snd ab) ->
+     {l | is_sorted l /\ are_merged (fst ab) (snd ab) l} := fun aS bS =>
+  let: a := fst ab in (* In case you use 'let' instead 'let:' there will be not *)
+  let: b := snd ab in (* information in obligation proof.                       *)
+  match a with
+  | [] => b
+  | ah :: al =>
+    match b with
+    | [] => ah :: al
+    | bh :: bl =>
+      match lt_eq_lt_dec ah bh with
+      | inleft  _ => let: l := merge_fix (al, bh::bl) _ _ in
+                     ah :: l
+      | inright _ => let: l := merge_fix (ah::al, bl) _ _ in
+                     bh :: l  (* In case you use 'a' instread of 'ah::al'   *)
+      end                     (* There will be not enough information in    *)
+    end                       (* obligation proof. The same thing with 'b'. *)
+  end.
+Next Obligation. split; auto. simpl. apply merged_nil_left.              Qed.
+Next Obligation. split. rewrite Heq_a; auto.  apply merged_nil_right.    Qed.
+Next Obligation. simpl in *; rewrite <- Heq_a, <- Heq_b. simpl. omega.   Qed.
+Next Obligation. simpl in *. rewrite <- Heq_a in aS. inversion aS; auto. Qed.
+Next Obligation. simpl in *. rewrite <- Heq_b in bS; auto.               Qed.
+Next Obligation.
+simpl in *.
+  remember (merge_fix (al, bh :: bl)
+            (merge_fix_obligation_3 (l0, l1) merge_fix aS bS l0 eq_refl l1
+               eq_refl ah al Heq_a bh bl Heq_b wildcard' Heq_anonymous1)
+            (merge_fix_obligation_4 (l0, l1) merge_fix aS bS l0 eq_refl l1
+               eq_refl ah al Heq_a bh bl Heq_b wildcard' Heq_anonymous1)
+            (merge_fix_obligation_5 (l0, l1) merge_fix aS bS l0 eq_refl l1
+               eq_refl ah al Heq_a bh bl Heq_b wildcard' Heq_anonymous1)).
+  clear Heqs. destruct s; simpl; destruct a; simpl in *.
+    split.
+      constructor; auto. apply in_list_smallest. left; auto.
+        intros y H1; destruct H1. omega.
+          apply merged_permutation in H0. apply Permutation_sym in H0.
+            apply (Permutation_in y H0) in H1. apply in_app_or in H1. destruct H1.
+              apply (smallest_in (ah :: al)). apply head_is_smallest; auto.
+                rewrite Heq_a; auto. right; auto.
+              apply (le_trans ah bh y). destruct wildcard'; omega.
+                apply (smallest_in (bh :: bl)); auto. apply head_is_smallest; auto.
+                  rewrite Heq_b; auto.
+      constructor; auto. destruct wildcard'; omega.
+Qed.
+Next Obligation. simpl in *. rewrite <- Heq_a, <- Heq_b. simpl. omega.   Qed.
+Next Obligation. simpl in *. rewrite Heq_a; auto.                        Qed.
+Next Obligation. simpl in *. rewrite <- Heq_b in bS. inversion bS; auto. Qed.
+Next Obligation.
+simpl in *.
+  remember (merge_fix (ah :: al, bl)
+            (merge_fix_obligation_7 (l0, l1) merge_fix aS bS l0 eq_refl l1
+               eq_refl ah al Heq_a bh bl Heq_b wildcard' Heq_anonymous1)
+            (merge_fix_obligation_8 (l0, l1) merge_fix aS bS l0 eq_refl l1
+               eq_refl ah al Heq_a bh bl Heq_b wildcard' Heq_anonymous1)
+            (merge_fix_obligation_9 (l0, l1) merge_fix aS bS l0 eq_refl l1
+               eq_refl ah al Heq_a bh bl Heq_b wildcard' Heq_anonymous1)).
+  clear Heqs. destruct s; simpl; destruct a; simpl in *.
+    split.
+      constructor; auto. apply in_list_smallest. left; auto.
+        intros y H1; destruct H1. omega.
+          apply merged_permutation in H0. apply Permutation_sym in H0.
+            apply (Permutation_in y H0) in H1. apply in_app_or in H1. destruct H1.
+              apply (le_trans bh ah y). omega.
+                apply (smallest_in (ah :: al)); auto. apply head_is_smallest; auto.
+                  rewrite Heq_a; auto. 
+              apply (smallest_in (bh :: bl)). apply head_is_smallest; auto.
+                rewrite Heq_b; auto. right; auto.
+     constructor; auto. omega.
+Qed.
+
+Program Fixpoint merge_sort_fix (l : list nat) {measure (length l)} :
+    {l' | Permutation l l' /\ is_sorted l'} :=
+  let: (nl, nr):= can_split_fix l in
+  match nl, nr with
+  | [], _ => nr
+  | _, [] => nl
+  | hl::tl, hr::tr =>
+    let: sl := merge_sort_fix nl in
+    let: sr := merge_sort_fix nr in
+    merge_fix (sl, sr) _ _
+  end.
+Next Obligation.
+remember (can_split_fix l) as spl. clear Heqspl. destruct spl as [lr H1].
+  destruct H1 as [H1 H2]; simpl in *. rewrite <- Heq_anonymous in *; simpl in *.
+    apply Permutation_sym in H1; split; auto.
+      assert (length nr <= 1). unfold dist in H2; simpl in H2.
+        rewrite <- minus_n_O in H2; auto.
+        destruct nr; auto; destruct nr; auto. simpl in H. omega.
+Qed.
+Next Obligation.  
+remember (can_split_fix l) as spl. clear Heqspl. destruct spl as [lr H1].
+  destruct H1 as [H1 H2]; simpl in *. rewrite <- Heq_anonymous in *; simpl in *.
+    rewrite app_nil_r in H1. apply Permutation_sym in H1; split; auto.
+      assert (length nl <= 1). unfold dist in H2. 
+        rewrite (Min.min_0_r (length nl)) in H2. rewrite (Max.max_0_r (length nl)) in H2.
+        rewrite <- minus_n_O in H2; auto.
+      destruct nl; auto; destruct nl; auto. simpl in H0. omega.
+Qed.
+Next Obligation. 
+remember (can_split_fix l) as spl. clear Heqspl. destruct spl as [lr H1].
+  destruct H1 as [H1 H2]; simpl in *. rewrite <- Heq_anonymous in *; simpl in *.
+    apply Permutation_length in H1. rewrite <- H1. simpl.
+      rewrite app_length. simpl. omega.
+Qed.
+Next Obligation.
+remember (can_split_fix l) as spl. clear Heqspl. destruct spl as [lr H1].
+  destruct H1 as [H1 H2]; simpl in *. rewrite <- Heq_anonymous in *; simpl in *.
+    apply Permutation_length in H1. rewrite <- H1. simpl.
+      rewrite app_length. simpl. omega.
+Qed.
+Next Obligation.
+remember (merge_sort_fix (hl :: tl)
+           (merge_sort_fix_obligation_3 l merge_sort_fix 
+              (hl :: tl) (hr :: tr) Heq_anonymous hl tl hr tr eq_refl eq_refl)) as spl.
+  clear Heqspl. destruct spl as [lr H1]. destruct H1 as [H1 H2]; auto.
+Qed.
+Next Obligation.
+remember (merge_sort_fix (hr :: tr)
+           (merge_sort_fix_obligation_4 l merge_sort_fix 
+              (hl :: tl) (hr :: tr) Heq_anonymous hl tl hr tr eq_refl eq_refl
+              (proj1_sig
+                 (merge_sort_fix (hl :: tl)
+                    (merge_sort_fix_obligation_3 l merge_sort_fix 
+                       (hl :: tl) (hr :: tr) Heq_anonymous hl tl hr tr
+                       eq_refl eq_refl))) eq_refl)) as spl.
+  clear Heqspl. destruct spl as [lr H1]. destruct H1 as [H1 H2]; auto.
+Qed.
+Next Obligation. admit. Qed.
